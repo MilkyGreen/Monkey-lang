@@ -1,2 +1,2 @@
-# glox
-Lox programing language implemented in Go
+
+Monkey, a programing language implemented by Go
