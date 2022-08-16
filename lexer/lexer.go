@@ -40,7 +40,31 @@ func (l *Lexer) NextToken() token.Token {
 	l.skipWhitespace()
 	switch l.ch {
 	case '=':
-		tok = newToken(token.ASSIGN, l.ch)
+		if l.peekChar() == '='{
+			l.readChar()
+			tok = token.Token{Type : token.EQ,Literal: "=="}
+		}else{
+			tok = newToken(token.ASSIGN, l.ch)
+		}
+	case '+':
+		tok = newToken(token.PLUS, l.ch)
+	case '-':
+		tok = newToken(token.MINUS, l.ch)
+	case '!':
+		if l.peekChar() == '='{
+			l.readChar()
+			tok = token.Token{Type : token.NOT_EQ,Literal: "!="}
+		}else{
+			tok = newToken(token.BANG, l.ch)
+		}
+	case '/':
+		tok = newToken(token.SLASH, l.ch)
+	case '*':
+		tok = newToken(token.ASTERISK, l.ch)
+	case '<':
+		tok = newToken(token.LT, l.ch)
+	case '>':
+		tok = newToken(token.GT, l.ch)
 	case ';':
 		tok = newToken(token.SEMICOLON, l.ch)
 	case '(':
@@ -49,8 +73,6 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.RPAREN, l.ch)
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
-	case '+':
-		tok = newToken(token.PLUS, l.ch)
 	case '{':
 		tok = newToken(token.LBRACE, l.ch)
 	case '}':
@@ -63,7 +85,7 @@ func (l *Lexer) NextToken() token.Token {
 			tok.Literal = l.readIdentifier()
 			tok.Type = token.LookupIdent(tok.Literal)
 			return tok
-		}else if isDigit(l.ch){
+		} else if isDigit(l.ch) {
 			tok.Type = token.INT
 			tok.Literal = l.readNumber()
 			return tok
@@ -82,32 +104,45 @@ func newToken(tokenType token.TokenType, ch byte) token.Token {
 }
 
 // 是否是字母，下划线'_'也算做字母了，可以作为变量
-func isLetter(ch byte) bool{
+func isLetter(ch byte) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
 }
 
-func (l *Lexer) readIdentifier() string{
+// 读取一个Identifier的字符串
+func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch){
+	for isLetter(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
 }
 
-func (l *Lexer) skipWhitespace(){
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r'{
+// 跳过空白字符
+func (l *Lexer) skipWhitespace() {
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
 		l.readChar()
 	}
 }
 
+// 读取一个数字
 func (l *Lexer) readNumber() string {
 	position := l.position
-	for(isDigit(l.ch)){
+	for isDigit(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
 }
 
-func isDigit(ch byte) bool{
+// 是否数字字符
+func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+// 查看下一个字符（但不移动）
+func (l *Lexer) peekChar() byte{
+	if l.readPosition >= len(l.input){
+		return 0
+	}else{
+		return l.input[l.readPosition]
+	}
 }
