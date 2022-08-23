@@ -50,3 +50,12 @@ type Identifier struct {
 
 func (i *Identifier) expressionNode()      {}
 func (i *Identifier) TokenLiteral() string { return i.Token.Literal }
+
+// return声明
+type ReturnStatement struct{
+	Token token.Token // return token
+	ReturnValue Expression // 后面跟一个表达式
+}
+
+func (rs *ReturnStatement) statementNode() {}
+func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }
