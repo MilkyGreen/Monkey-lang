@@ -20,6 +20,17 @@ const (
 	CALL        // myFunction(X)
 )
 
+var precedences = map[token.TokenType]int{
+	token.EQ:       EQUALS,
+	token.NOT_EQ:   EQUALS,
+	token.LT:       LESSGREATER,
+	token.GT:       LESSGREATER,
+	token.PLUS:     SUM,
+	token.MINUS:    SUM,
+	token.SLASH:    PRODUCT,
+	token.ASTERISK: PRODUCT,
+}
+
 type (
 	// 处理前缀表达式
 	prefixParseFn func() ast.Expression
@@ -46,13 +57,23 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
-	
+
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
 
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+
+	p.infixParseFns = make(map[token.TokenType]infixParseFn)
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
+	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+	p.registerInfix(token.EQ, p.parseInfixExpression)
+	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(token.LT, p.parseInfixExpression)
+	p.registerInfix(token.GT, p.parseInfixExpression)
 
 	return p
 }
@@ -82,6 +103,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 // 从当前的token位置 parse一条声明
 func (p *Parser) parseStatement() ast.Statement {
+	defer untrace(trace("parseStatement"))
 	switch p.curToken.Type {
 	case token.LET:
 		return p.parseLetStatement()
@@ -94,6 +116,7 @@ func (p *Parser) parseStatement() ast.Statement {
 
 // parse let 语句
 func (p *Parser) parseLetStatement() *ast.LetStatement {
+	defer untrace(trace("parseLetStatement"))
 	// 第一个token是 let
 	stmt := &ast.LetStatement{Token: p.curToken}
 	// 第二个必须是个变量名
@@ -117,6 +140,7 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 
 // parse return 声明
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
+	defer untrace(trace("parseReturnStatement"))
 	// 第一个token是 return
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 	p.nextToken()
@@ -170,6 +194,7 @@ func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 
 // parse 表达式类型的声明
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+	defer untrace(trace("parseExpressionStatement"))
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
 	if p.peekTokenIs(token.SEMICOLON) {
@@ -179,23 +204,36 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 }
 
 // parse 表达式
+// 先按前缀解析左边，再判断后面有没符合条件的中缀
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-	// 优先解析前缀token
+	defer untrace(trace("parseExpression"))
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
+	// 先用前缀方法解析左边的表达式
 	leftExp := prefix()
+	// 如果后面有级别更高的操作符，则按中缀解析，前面的表达式当做中缀表达式的一分部
+	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+		infix := p.infixParseFns[p.peekToken.Type]
+		if infix == nil {
+			return leftExp
+		}
+		p.nextToken()
+		leftExp = infix(leftExp)
+	}
 	return leftExp
 }
 
 // 解析Identifier表达式
 func (p *Parser) parseIdentifier() ast.Expression {
+	defer untrace(trace("parseIdentifier"))
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
+	defer untrace(trace("parseIntegerLiteral"))
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
@@ -214,11 +252,40 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 
 // parse 前缀表达式
 func (p *Parser) parsePrefixExpression() ast.Expression {
+	defer untrace(trace("parsePrefixExpression"))
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
 	}
 	p.nextToken()
 	expression.Right = p.parseExpression(PREFIX)
+	return expression
+}
+
+func (p *Parser) peekPrecedence() int {
+	if p, ok := precedences[p.peekToken.Type]; ok {
+		return p
+	}
+	return LOWEST
+}
+
+func (p *Parser) curPrecedence() int {
+	if p, ok := precedences[p.curToken.Type]; ok {
+		return p
+	}
+	return LOWEST
+}
+
+// parse 中缀表达式
+func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+	defer untrace(trace("parseInfixExpression"))
+	expression := &ast.InfixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expression.Right = p.parseExpression(precedence)
 	return expression
 }
