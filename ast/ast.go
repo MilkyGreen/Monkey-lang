@@ -3,6 +3,7 @@ package ast
 import (
 	"bytes"
 	"monkey/token"
+	"strings"
 )
 
 // ast 节点
@@ -82,7 +83,6 @@ func (bs *BlockStatement) String() string {
 	return out.String()
 }
 
-
 // return声明
 type ReturnStatement struct {
 	Token       token.Token // return token
@@ -110,7 +110,6 @@ type Identifier struct {
 func (i *Identifier) expressionNode()      {}
 func (i *Identifier) TokenLiteral() string { return i.Token.Literal }
 func (i *Identifier) String() string       { return i.Value }
-
 
 // 表达式类型的声明（表达式也是一种特殊的声明）
 type ExpressionStatement struct {
@@ -204,5 +203,50 @@ func (ie *IfExpression) String() string {
 		out.WriteString("else ")
 		out.WriteString(ie.Alternative.String())
 	}
+	return out.String()
+}
+
+// 函数定义
+type FunctionLiteral struct {
+	Token      token.Token // The 'fn' token
+	Parameters []*Identifier
+	Body       *BlockStatement
+}
+
+func (fl *FunctionLiteral) expressionNode()      {}
+func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FunctionLiteral) String() string {
+	var out bytes.Buffer
+	params := []string{}
+	for _, p := range fl.Parameters {
+		params = append(params, p.String())
+	}
+	out.WriteString(fl.TokenLiteral())
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") ")
+	out.WriteString(fl.Body.String())
+	return out.String()
+}
+
+// 函数调用表达式
+type CallExpression struct {
+	Token     token.Token // The '(' token
+	Function  Expression  // Identifier or FunctionLiteral
+	Arguments []Expression
+}
+
+func (ce *CallExpression) expressionNode()      {}
+func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+	args := []string{}
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(ce.Function.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
 	return out.String()
 }

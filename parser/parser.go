@@ -29,6 +29,7 @@ var precedences = map[token.TokenType]int{
 	token.MINUS:    SUM,
 	token.SLASH:    PRODUCT,
 	token.ASTERISK: PRODUCT,
+	token.LPAREN:   CALL,
 }
 
 type (
@@ -72,6 +73,8 @@ func New(l *lexer.Lexer) *Parser {
 
 	p.registerPrefix(token.IF, p.parseIfExpression)
 
+	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
@@ -81,6 +84,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
 	p.registerInfix(token.LT, p.parseInfixExpression)
 	p.registerInfix(token.GT, p.parseInfixExpression)
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
 
 	return p
 }
@@ -123,22 +127,22 @@ func (p *Parser) parseStatement() ast.Statement {
 
 // parse let 语句
 func (p *Parser) parseLetStatement() *ast.LetStatement {
-	defer untrace(trace("parseLetStatement"))
+	// defer untrace(trace("parseLetStatement"))
 	// 第一个token是 let
 	stmt := &ast.LetStatement{Token: p.curToken}
 	// 第二个必须是个变量名
 	if !p.expectPeek(token.IDENT) {
 		return nil
 	}
+
 	// 变量名
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	// 后面一定要是等号
 	if !p.expectPeek(token.ASSIGN) {
 		return nil
 	}
-	// TODO: We're skipping the expressions until we
-	// encounter a semicolon
-	// 这里暂时先把后面表达式的部分跳过
+	p.nextToken()
+	stmt.Value = p.parseExpression(LOWEST)
 	for !p.curTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -151,9 +155,9 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	// 第一个token是 return
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 	p.nextToken()
-	// TODO: We're skipping the expressions until we
-	// encounter a semicolon
-	// 这里暂时先把后面表达式的部分跳过
+
+	stmt.ReturnValue = p.parseExpression(LOWEST)
+
 	for !p.curTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -354,4 +358,67 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		p.nextToken()
 	}
 	return block
+}
+
+// parse 函数定义
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+	lit := &ast.FunctionLiteral{Token: p.curToken} // fn
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+	lit.Parameters = p.parseFunctionParameters() // 函数的入参
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+	lit.Body = p.parseBlockStatement() // 函数代码
+	return lit
+}
+
+// parse函数的参数
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	identifiers := []*ast.Identifier{}
+	if p.peekTokenIs(token.RPAREN) { // 没有入参
+		p.nextToken()
+		return identifiers
+	}
+	p.nextToken()
+	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	identifiers = append(identifiers, ident)
+	for p.peekTokenIs(token.COMMA) { // 遇到逗号就继续parse入参
+		p.nextToken()
+		p.nextToken()
+		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		identifiers = append(identifiers, ident)
+	}
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+	return identifiers
+}
+
+// parse函数调用表达式
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	exp := &ast.CallExpression{Token: p.curToken, Function: function}
+	exp.Arguments = p.parseCallArguments()
+	return exp
+}
+
+// parse函数调用的入参表达式
+func (p *Parser) parseCallArguments() []ast.Expression {
+	args := []ast.Expression{}
+	if p.peekTokenIs(token.RPAREN) { // 没有入参
+		p.nextToken()
+		return args
+	}
+	p.nextToken()
+	args = append(args, p.parseExpression(LOWEST)) // 不断尝试parse一个表达式
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+	}
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+	return args
 }
