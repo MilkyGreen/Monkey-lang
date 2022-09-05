@@ -114,7 +114,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 // 从当前的token位置 parse一条声明
 func (p *Parser) parseStatement() ast.Statement {
-	defer untrace(trace("parseStatement"))
+	// defer untrace(trace("parseStatement"))
 	switch p.curToken.Type {
 	case token.LET:
 		return p.parseLetStatement()
@@ -151,7 +151,7 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 
 // parse return 声明
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
-	defer untrace(trace("parseReturnStatement"))
+	// defer untrace(trace("parseReturnStatement"))
 	// 第一个token是 return
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 	p.nextToken()
@@ -205,7 +205,7 @@ func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 
 // parse 表达式类型的声明
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
-	defer untrace(trace("parseExpressionStatement"))
+	// defer untrace(trace("parseExpressionStatement"))
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
 	if p.peekTokenIs(token.SEMICOLON) {
@@ -217,7 +217,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 // parse 表达式
 // 先按前缀解析左边，再判断后面有没符合条件的中缀
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-	defer untrace(trace("parseExpression"))
+	// defer untrace(trace("parseExpression"))
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
@@ -239,12 +239,12 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 // 解析Identifier表达式
 func (p *Parser) parseIdentifier() ast.Expression {
-	defer untrace(trace("parseIdentifier"))
+	// defer untrace(trace("parseIdentifier"))
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
-	defer untrace(trace("parseIntegerLiteral"))
+	// defer untrace(trace("parseIntegerLiteral"))
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
@@ -263,7 +263,7 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 
 // parse 前缀表达式
 func (p *Parser) parsePrefixExpression() ast.Expression {
-	defer untrace(trace("parsePrefixExpression"))
+	// defer untrace(trace("parsePrefixExpression"))
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
@@ -289,7 +289,7 @@ func (p *Parser) curPrecedence() int {
 
 // parse 中缀表达式
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
-	defer untrace(trace("parseInfixExpression"))
+	// defer untrace(trace("parseInfixExpression"))
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
