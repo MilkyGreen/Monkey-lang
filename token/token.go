@@ -42,6 +42,8 @@ const (
 	IF       = "IF"
 	ELSE     = "ELSE"
 	RETURN   = "RETURN"
+
+	STRING = "STRING"
 )
 
 // 关键字哈希表

@@ -76,6 +76,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return applyFunction(function, args)
 
+	case *ast.StringLiteral:
+		return &object.String{Value: node.Value}
+
 	}
 
 	return nil
@@ -91,6 +94,7 @@ func applyFunction(fn object.Object, args []object.Object) object.Object {
 	evaluated := Eval(function.Body, extendedEnv)
 	return unwrapReturnValue(evaluated)
 }
+
 // 将入参加入到函数的环境变量中
 func extendFunctionEnv(
 	fn *object.Function,
@@ -102,6 +106,7 @@ func extendFunctionEnv(
 	}
 	return env
 }
+
 // 返回函数结果
 func unwrapReturnValue(obj object.Object) object.Object {
 	if returnValue, ok := obj.(*object.ReturnValue); ok {
@@ -153,10 +158,26 @@ func evalInfixExpression(
 	case left.Type() != right.Type():
 		return newError("type mismatch: %s %s %s",
 			left.Type(), operator, right.Type())
+	case left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ:
+		return evalStringInfixExpression(operator, left, right)
+
 	default:
 		return newError("unknown operator: %s %s %s",
 			left.Type(), operator, right.Type())
 	}
+}
+
+func evalStringInfixExpression(
+	operator string,
+	left, right object.Object,
+) object.Object {
+	if operator != "+" {
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
+	}
+	leftVal := left.(*object.String).Value
+	rightVal := right.(*object.String).Value
+	return &object.String{Value: leftVal + rightVal}
 }
 
 // 计算数字中缀表达式
