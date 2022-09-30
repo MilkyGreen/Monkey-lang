@@ -282,8 +282,8 @@ func (al *ArrayLiteral) String() string {
 // 数组调用 ,如 array[0]
 type IndexExpression struct {
 	Token token.Token // The [ token
-	Left  Expression // 数组表达式
-	Index Expression // 索引表达式，结果必须是数字
+	Left  Expression  // 数组表达式
+	Index Expression  // 索引表达式，结果必须是数字
 }
 
 func (ie *IndexExpression) expressionNode()      {}
@@ -295,5 +295,24 @@ func (ie *IndexExpression) String() string {
 	out.WriteString("[")
 	out.WriteString(ie.Index.String())
 	out.WriteString("])")
+	return out.String()
+}
+
+type HashLiteral struct {
+	Token token.Token // the '{' token
+	Pairs map[Expression]Expression
+}
+
+func (hl *HashLiteral) expressionNode()      {}
+func (hl *HashLiteral) TokenLiteral() string { return hl.Token.Literal }
+func (hl *HashLiteral) String() string {
+	var out bytes.Buffer
+	pairs := []string{}
+	for key, value := range hl.Pairs {
+		pairs = append(pairs, key.String()+":"+value.String())
+	}
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
 	return out.String()
 }
